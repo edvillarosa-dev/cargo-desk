@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cargo Desk</title>
+<meta name="theme-color" content="#14653a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cargo Desk">
+<style>
+  :root { --green: #14653a; --ink: #13241a; --muted: #56645b; --line: #d3ddd6; --bg: #f3f6f4; }
+  html, body { margin: 0; height: 100%; background: var(--bg); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #fff; }
+  .screen { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px 16px; box-sizing: border-box; }
+  .card { width: 100%; max-width: 460px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 24px; box-shadow: 0 2px 10px rgba(19,36,26,.06); }
+  .card img { width: 220px; max-width: 70%; display: block; margin: 0 auto 14px; }
+  h1 { font-size: 20px; margin: 0 0 6px; text-align: center; letter-spacing: .02em; }
+  p { color: var(--muted); margin: 0 0 14px; }
+  input { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+  button { margin-top: 12px; width: 100%; padding: 11px; border: 0; border-radius: 8px; background: var(--green); color: #fff; font: 600 15px system-ui, sans-serif; cursor: pointer; }
+  .err { color: #a31f26; font-size: 13px; min-height: 18px; margin-top: 8px; }
+  .small { font-size: 12px; text-align: center; margin-top: 14px; }
+  #loading { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 14px; background: #fff; z-index: 2; }
+  #loading img { width: 200px; }
+  #loading span { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="screen" id="setup" hidden>
+  <div class="card">
+    <img src="logo.png" alt="Team AJA Logistiks">
+    <h1>Cargo Desk</h1>
+    <p>Paste the Cargo Desk link your team leader gave you. This is done once on this device.</p>
+    <input id="url" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+    <div class="err" id="err"></div>
+    <button id="save">Open Cargo Desk</button>
+    <p class="small">The link is saved only on this device. Data stays in the team's Google Sheet.</p>
+  </div>
+</div>
+<div id="loading"><img src="logo.png" alt=""><span>Opening Cargo Desk…</span><a href="#" id="change" style="display:none;font-size:13px;color:#14653a">Taking long? Check your internet, or change the link</a></div>
+<iframe id="app" title="Cargo Desk" allow="clipboard-read; clipboard-write"></iframe>
+<script>
+  var KEY = 'cargoDeskUrl';
+  function get() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  function put(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+  function valid(u) { return /^https:\/\/script\.google\.com\/(a\/[^\/]+\/)?macros\/s\/[\w-]+\/(exec|dev)(\?.*)?$/.test(u); }
+  function open(u) {
+    document.getElementById('setup').hidden = true;
+    var ld = document.getElementById('loading'), f = document.getElementById('app');
+    ld.style.display = 'flex'; f.style.display = 'block';
+    f.onload = function () { ld.style.display = 'none'; };
+    f.src = u;
+    setTimeout(function () { document.getElementById('change').style.display = 'inline'; }, 20000);
+  }
+  function reset() { put(''); var f = document.getElementById('app'); f.src = 'about:blank'; f.style.display = 'none'; document.getElementById('loading').style.display = 'none'; setup(); }
+  document.getElementById('change').onclick = function (e) { e.preventDefault(); reset(); };
+  // Ctrl+Shift+L (outside the app frame) or opening the page with #reset: paste a different link
+  window.addEventListener('keydown', function (e) { if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) reset(); });
+  window.addEventListener('hashchange', function () { if (location.hash === '#reset') { history.replaceState(null, '', location.pathname); reset(); } });
+  function setup(msg) {
+    document.getElementById('setup').hidden = false;
+    document.getElementById('err').textContent = msg || '';
+    var i = document.getElementById('url'); i.value = get(); i.focus();
+  }
+  document.getElementById('save').onclick = function () {
+    var u = document.getElementById('url').value.trim();
+    if (!valid(u)) { document.getElementById('err').textContent = 'That does not look like a Cargo Desk link. It starts with https://script.google.com/macros/s/ and ends with /exec'; return; }
+    put(u); open(u);
+  };
+  document.getElementById('url').addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('save').click(); });
+  // open this page with #reset at the end to paste a different link
+  if (location.hash === '#reset') { put(''); history.replaceState(null, '', location.pathname); }
+  var saved = get();
+  if (saved && valid(saved)) open(saved); else setup();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+</script>
+</body>
+</html>
